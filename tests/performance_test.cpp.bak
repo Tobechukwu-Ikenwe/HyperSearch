@@ -1,0 +1,286 @@
+#include "embedding_model.hpp"
+#include "vector_store.hpp"
+
+#include <algorithm>
+#include <chrono>
+#include <cstdint>
+#include <fstream>
+#include <iostream>
+#include <string>
+#include <vector>
+
+
+// Save embeddings so we don't regenerate them every benchmark run.
+void save_embeddings(
+    const std::vector<Embedding>& embeddings,
+    const std::string& path)
+{
+    std::ofstream out(path, std::ios::binary);
+
+    if (!out) {
+        throw std::runtime_error(
+            "Could not open embedding file"
+        );
+    }
+
+    // Store number of embeddings.
+    std::uint64_t count = embeddings.size();
+
+    out.write(
+        reinterpret_cast<const char*>(&count),
+        sizeof(count)
+    );
+
+    for (const auto& embedding : embeddings) {
+
+        // Store vector dimension.
+        std::uint64_t dimension = embedding.size();
+
+        out.write(
+            reinterpret_cast<const char*>(&dimension),
+            sizeof(dimension)
+        );
+
+        // Store the actual float values.
+        out.write(
+            reinterpret_cast<const char*>(embedding.data().data()),
+            dimension * sizeof(float)
+        );
+    }
+}
+
+
+// Load previously generated embeddings.
+std::vector<Embedding> load_embeddings(
+    const std::string& path)
+{
+    std::ifstream in(path, std::ios::binary);
+
+    if (!in) {
+        throw std::runtime_error(
+            "Could not open embedding file"
+        );
+    }
+
+    std::uint64_t count;
+
+    in.read(
+        reinterpret_cast<char*>(&count),
+        sizeof(count)
+    );
+
+    std::vector<Embedding> embeddings;
+    embeddings.reserve(count);
+
+    for (std::uint64_t i = 0; i < count; ++i) {
+
+        std::uint64_t dimension;
+
+        in.read(
+            reinterpret_cast<char*>(&dimension),
+            sizeof(dimension)
+        );
+
+        std::vector<float> values(dimension);
+
+        in.read(
+            reinterpret_cast<char*>(values.data()),
+            dimension * sizeof(float)
+        );
+
+        embeddings.emplace_back(
+            std::move(values)
+        );
+    }
+
+    return embeddings;
+}
+
+
+int main()
+{
+    const std::string tokenizer =
+        "third_party/models/all-MiniLM-L6-v2/tokenizer.json";
+
+    const std::string embedding_file =
+        "tests/embeddings.bin";
+
+    const std::size_t target_size = 100000;
+
+    // Load MiniLM.
+    EmbeddingModel model(tokenizer);
+
+    std::vector<Embedding> embeddings;
+    embeddings.reserve(target_size);
+
+    std::cout
+        << "Generating "
+        << target_size
+        << " embeddings...\n";
+
+    // Generate different text for every embedding.
+    for (std::size_t i = 0; i < target_size; ++i) {
+
+        std::string text =
+            "Operating system memory management "
+            "document number "
+            + std::to_string(i)
+            + ". This document discusses virtual "
+              "memory, allocation, processes, pages, "
+              "and memory performance.";
+
+        embeddings.push_back(
+            model.embed(text)
+        );
+
+        if ((i + 1) % 10000 == 0) {
+            std::cout
+                << "Generated "
+                << (i + 1)
+                << " / "
+                << target_size
+                << '\n';
+        }
+    }
+
+    // Save them once.
+    save_embeddings(
+        embeddings,
+        embedding_file
+    );
+
+    std::cout
+        << "Saved embeddings to "
+        << embedding_file
+        << '\n';
+
+
+    // Reload the embeddings.
+    auto loaded =
+        load_embeddings(embedding_file);
+
+    std::cout
+        << "Loaded "
+        << loaded.size()
+        << " embeddings\n";
+
+
+    // Build the vector store.
+    VectorStore store;
+
+    for (std::size_t i = 0; i < loaded.size(); ++i) {
+        store.add(std::to_string(i), loaded[i]);
+    }
+    std::cout
+        << "Vector store size: "
+        << store.size()
+        << '\n';
+
+
+    // Generate the query BEFORE timing.
+    Embedding query =
+        model.embed(
+            "How does an operating system manage "
+            "virtual memory?"
+        );
+
+
+    // Warm up the CPU/cache.
+    store.search(query);
+
+
+    const std::size_t iterations = 100;
+
+    std::vector<double> times;
+    times.reserve(iterations);
+
+
+    // Time ONLY vector retrieval.
+    for (std::size_t i = 0; i < iterations; ++i) {
+
+        auto start =
+            std::chrono::steady_clock::now();
+
+        volatile auto result =
+            store.search(query);
+
+        auto end =
+            std::chrono::steady_clock::now();
+
+        double microseconds =
+            std::chrono::duration<double, std::micro>(
+                end - start
+            ).count();
+
+        times.push_back(microseconds);
+    }
+
+
+    // Sort timings for percentile calculations.
+    std::sort(
+        times.begin(),
+        times.end()
+    );
+
+
+    double p50 =
+        times[times.size() / 2];
+
+    double p95 =
+        times[
+            static_cast<std::size_t>(
+                times.size() * 0.95
+            )
+        ];
+
+    double p99 =
+        times[
+            static_cast<std::size_t>(
+                times.size() * 0.99
+            )
+        ];
+
+    double qps =
+        1'000'000.0 / p50;
+
+
+    std::cout
+        << "\n============================\n"
+        << "HyperSearch Performance Test\n"
+        << "============================\n";
+
+    std::cout
+        << "Vectors: "
+        << store.size()
+        << '\n';
+
+    std::cout
+        << "Dimensions: "
+        << loaded[0].size()
+        << '\n';
+
+    std::cout
+        << "Searches: "
+        << iterations
+        << '\n';
+
+    std::cout
+        << "p50: "
+        << p50
+        << " us\n";
+
+    std::cout
+        << "p95: "
+        << p95
+        << " us\n";
+
+    std::cout
+        << "p99: "
+        << p99
+        << " us\n";
+
+    std::cout
+        << "QPS: "
+        << qps
+        << '\n';
+}

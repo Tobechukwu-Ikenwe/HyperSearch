@@ -1,0 +1,29 @@
+[DOC_001]
+Dynamic memory allocation allows a program to request memory while it is running. The heap is commonly used for dynamically allocated memory.
+
+[DOC_002]
+A memory leak occurs when allocated memory is no longer needed but is never released. Repeated leaks can cause a program to consume increasing amounts of memory.
+
+[DOC_003]
+A dangling pointer is a pointer that refers to memory that has already been released. Using a dangling pointer can cause undefined behavior.
+
+[DOC_004]
+A stack stores local variables and function call information. Stack memory is automatically managed as functions are called and return.
+
+[DOC_005]
+A heap allocator manages dynamically allocated memory. Functions such as malloc and free are commonly used to request and release heap memory.
+
+[DOC_006]
+Virtual memory gives each process its own virtual address space. The operating system translates virtual addresses into physical memory addresses.
+
+[DOC_007]
+A page table maps virtual page numbers to physical frames. The operating system uses page tables to perform address translation.
+
+[DOC_008]
+A translation lookaside buffer, or TLB, caches recent virtual-to-physical address translations to make memory access faster.
+
+[DOC_009]
+A cache stores frequently accessed data so that future accesses can be served faster than retrieving the data from a slower storage layer.
+
+[DOC_010]
+A mutex is used to protect shared data from concurrent access. Threads can use a mutex to prevent race conditions.

@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/tobe/projects/HyperSearch/build/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

@@ -1,0 +1,2 @@
+/usr/bin/ar qc libhypersearch_lib.a CMakeFiles/hypersearch_lib.dir/src/embedding/Embedding.cpp.o CMakeFiles/hypersearch_lib.dir/src/embeddingmodel/EmbeddingModel.cpp.o CMakeFiles/hypersearch_lib.dir/src/vectorstore/VectorStore.cpp.o
+/usr/bin/ranlib libhypersearch_lib.a

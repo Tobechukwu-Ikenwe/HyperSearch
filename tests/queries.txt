@@ -1,0 +1,10 @@
+Q001|What mechanism lets software obtain additional memory during execution?|DOC_001
+Q002|What problem occurs when a program keeps reserving memory without giving it back?|DOC_002
+Q003|What happens if a program keeps a reference to memory after that memory has been returned?|DOC_003
+Q004|Where does information associated with function calls and automatic variables normally live?|DOC_004
+Q005|What software component is responsible for handing out and reclaiming dynamically requested memory?|DOC_005
+Q006|How can two programs use what appears to be separate address spaces even when sharing the same physical machine?|DOC_006
+Q007|What data structure tells the operating system which physical location corresponds to a virtual page?|DOC_007
+Q008|What small hardware cache avoids repeatedly performing the same virtual address translation?|DOC_008
+Q009|Why can recently used information be retrieved faster than going back to a slower storage layer?|DOC_009
+Q010|How can concurrent threads prevent two operations from modifying shared state simultaneously?|DOC_010
