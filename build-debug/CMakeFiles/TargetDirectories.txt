@@ -1,6 +1,0 @@
-/home/tobe/projects/HyperSearch/build-debug/CMakeFiles/hypersearch_lib.dir
-/home/tobe/projects/HyperSearch/build-debug/CMakeFiles/hypersearch.dir
-/home/tobe/projects/HyperSearch/build-debug/CMakeFiles/retreival_test.dir
-/home/tobe/projects/HyperSearch/build-debug/CMakeFiles/performance_test.dir
-/home/tobe/projects/HyperSearch/build-debug/CMakeFiles/edit_cache.dir
-/home/tobe/projects/HyperSearch/build-debug/CMakeFiles/rebuild_cache.dir
