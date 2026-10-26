@@ -1,0 +1,19 @@
+name: Search core
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  selection-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install SQLite development files
+        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev
+      - name: Configure model-free search tests
+        run: cmake -S . -B build-core -DHYPERSEARCH_CORE_ONLY=ON -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build-core -j2
+      - name: Test
+        run: ctest --test-dir build-core --output-on-failure
