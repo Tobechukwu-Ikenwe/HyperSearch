@@ -11,9 +11,73 @@ void VectorStore::add(
     const std::string& text,
     const Embedding& embedding)
 {
-    documents.push_back({text, embedding});
+    add(text, embedding, "", 0, 0);
 }
 
+void VectorStore::add(
+    const std::string& text,
+    const Embedding& embedding,
+    const std::string& file_path,
+    std::size_t start_line,
+    std::size_t end_line)
+{
+    documents.push_back({
+        text,
+        embedding,
+        file_path,
+        start_line,
+        end_line
+    });
+}
+
+
+void VectorStore::replace_file(
+    const std::string& file_path,
+    const std::vector<StoredDocument>& replacements
+)
+{
+    // Build the next index separately so the current one remains intact
+    // if copying or allocating the replacement entries fails.
+    std::vector<StoredDocument> updated;
+    updated.reserve(documents.size() + replacements.size());
+
+    for (const auto& document : documents) {
+        if (document.file_path != file_path) {
+            updated.push_back(document);
+        }
+    }
+
+    for (const auto& document : replacements) {
+        if (document.file_path != file_path) {
+            throw std::invalid_argument(
+                "Every replacement document must match the target file path"
+            );
+        }
+
+        updated.push_back(document);
+    }
+
+    documents.swap(updated);
+}
+
+void VectorStore::remove_file(const std::string& file_path)
+{
+    documents.erase(
+        std::remove_if(
+            documents.begin(),
+            documents.end(),
+            [&file_path](const StoredDocument& document) {
+                return document.file_path == file_path;
+            }
+        ),
+        documents.end()
+    );
+}
+
+void VectorStore::clear()
+{
+    documents.clear();
+}
 
 std::size_t VectorStore::size() const
 {
@@ -120,9 +184,14 @@ SearchResult VectorStore::search(
     }
 
     // Return the globally best document.
+    const auto& best = documents[best_index];
+
     return {
-        documents[best_index].text,
-        highest_similarity
+        best.text,
+        highest_similarity,
+        best.file_path,
+        best.start_line,
+        best.end_line
     };
 }
 
@@ -176,7 +245,10 @@ std::vector<SearchResult> VectorStore::search_top_k(
         // the same vector element.
         results[i] = {
             documents[i].text,
-            score
+            score,
+            documents[i].file_path,
+            documents[i].start_line,
+            documents[i].end_line
         };
     }
 

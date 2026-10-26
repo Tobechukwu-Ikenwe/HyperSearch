@@ -2,34 +2,31 @@
 #define EMBEDDING_MODEL_HPP
 
 #include "Embedding.hpp"
+#include "tokenizers_cpp.h"
+#include <onnxruntime_cxx_api.h>
 
 #include <memory>
 #include <string>
 #include <vector>
 
-#include "tokenizers_cpp.h"
-#include <onnxruntime_cxx_api.h>
-
 class EmbeddingModel {
-
 private:
-    // Converts text into token IDs for the model.
     std::unique_ptr<tokenizers::Tokenizer> tokenizer;
-
-    // Manages the ONNX Runtime environment.
     Ort::Env env;
-
-    // Holds the loaded ONNX model.
     std::unique_ptr<Ort::Session> session;
 
 public:
-    // Loads the tokenizer and embedding model.
-    EmbeddingModel(const std::string& tokenizer_path);
+    // Load a tokenizer and its corresponding ONNX model.
+    explicit EmbeddingModel(
+        const std::string& tokenizer_path,
+        const std::string& model_path =
+            "third_party/models/all-MiniLM-L6-v2/onnx/model.onnx"
+    );
 
-    // Converts one text into an embedding.
+    // Embed one text using the same implementation as batch inference.
     Embedding embed(const std::string& text);
 
-    // Converts multiple texts into embeddings.
+    // Embed multiple texts in one ONNX Runtime inference call.
     std::vector<Embedding> embed_batch(
         const std::vector<std::string>& texts
     );
