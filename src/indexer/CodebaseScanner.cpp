@@ -56,6 +56,7 @@ const std::set<std::string>& ignored_directories() {
         "build-debug", "build-release", "build-relwithdebinfo",
         "build-minsizerel", "cmakefiles",
         "third_party", "vendor", "node_modules", "bower_components",
+        "eval", "experiments", "test-repos",
         ".venv", "venv", "__pycache__", ".pytest_cache",
         ".mypy_cache", ".tox", ".nox", "site-packages",
         ".cache", "dist", "out", "target"
@@ -239,6 +240,17 @@ std::vector<ScannedFile> CodebaseScanner::scan(
         const fs::directory_entry& entry = *it;
         const std::string filename =
             lowercase(entry.path().filename().string());
+
+        // Do not index content outside the requested tree through a file
+        // symlink. Directory symlinks are not followed by the iterator either.
+        if (entry.is_symlink(ec)) {
+            ec.clear();
+            continue;
+        }
+        if (ec) {
+            ec.clear();
+            continue;
+        }
 
         // Prune ignored directories before visiting their descendants.
         if (entry.is_directory(ec)) {

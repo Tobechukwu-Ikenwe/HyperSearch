@@ -69,6 +69,6 @@ language model or proof that the implementation behaves as described.
 - The scanner includes nested example repositories unless their directory
   names are on its ignore list.
 
-The selection tests in `tests/search_selection_test.cpp` cover the individual
+The selection tests in `tests/unit/search_selection_test.cpp` cover the individual
 rules. `benchmarks/search_bench.cpp` times fusion plus formatting on a fixed
 synthetic pool. It does not include model inference, scanning, or SQLite work.

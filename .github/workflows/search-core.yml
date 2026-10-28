@@ -1,4 +1,4 @@
-name: Search core
+name: HyperSearch CI
 
 on:
   push:
@@ -17,3 +17,44 @@ jobs:
         run: cmake --build build-core -j2
       - name: Test
         run: ctest --test-dir build-core --output-on-failure
+
+  full-cli:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install build dependencies
+        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev libomp-dev
+      - name: Cache Rust crates
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: cargo-${{ runner.os }}-${{ hashFiles('third_party/tokenizers-cpp/rust/Cargo.toml') }}
+      - name: Configure
+        run: cmake --preset full
+      - name: Build
+        run: cmake --build --preset full -j2
+      - name: Test
+        run: ctest --preset full
+      - name: Installed CLI smoke test
+        run: |
+          cmake --install build --prefix "$RUNNER_TEMP/hypersearch-install"
+          python3 tests/integration/cli_smoke.py "$RUNNER_TEMP/hypersearch-install/bin/hypersearch"
+      - name: Retrieval regression evaluation
+        run: python3 eval/evaluate.py ./build/hypersearch . --index --min-recall-at-5 0.60
+
+  sanitized-core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build dependencies
+        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev libomp-dev
+      - name: Configure
+        run: cmake --preset core-sanitized
+      - name: Build
+        run: cmake --build --preset core-sanitized -j2
+      - name: Test
+        run: ctest --preset core-sanitized

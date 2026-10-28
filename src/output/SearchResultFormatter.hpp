@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../vectorstore/VectorStore.hpp"
-#include "../query/SearchQuery.h"
+#include "../embedding/VectorStore.hpp"
+#include "../search/SearchQuery.h"
 
 #include <filesystem>
 #include <string>

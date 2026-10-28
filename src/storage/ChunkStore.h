@@ -30,6 +30,11 @@ public:
         const std::vector<CodeChunk>& chunks
     );
     std::vector<ChunkSearchResult> search_candidates(const std::string& query, std::size_t limit = 20);
+    std::vector<CodeChunk> all_chunks();
+    bool file_is_current(const std::filesystem::path& relative_path,
+                         const std::string& fingerprint);
+    void mark_file_current(const std::filesystem::path& relative_path,
+                           const std::string& fingerprint);
 
 private:
     sqlite3* db_ = nullptr;

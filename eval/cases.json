@@ -1,0 +1,14 @@
+[
+  {"query": "where are source files discovered and filtered", "relevant_files": ["src/indexer/CodebaseScanner.cpp"]},
+  {"query": "how are source files split into overlapping chunks", "relevant_files": ["src/indexer/CodeChunker.cpp"]},
+  {"query": "where is the full text SQLite index created", "relevant_files": ["src/storage/ChunkStore.cpp"]},
+  {"query": "where are missing source files removed from the index", "relevant_files": ["src/storage/ChunkStore.cpp"]},
+  {"query": "how are cached embeddings invalidated when a chunk changes", "relevant_files": ["src/storage/EmbeddingStore.cpp"]},
+  {"query": "where are missing document embeddings generated", "relevant_files": ["src/embedding/EmbeddingPipeline.cpp"]},
+  {"query": "how are ONNX token embeddings pooled and normalized", "relevant_files": ["src/embedding/EmbeddingModel.cpp"]},
+  {"query": "where is cosine similarity computed in parallel", "relevant_files": ["src/embedding/VectorStore.cpp"]},
+  {"query": "how are lexical and semantic result ranks combined", "relevant_files": ["src/search/ResultFusion.cpp"]},
+  {"query": "where are natural language terms converted to an FTS query", "relevant_files": ["src/search/QueryAnalyzer.cpp"]},
+  {"query": "how are matching source line excerpts selected", "relevant_files": ["src/output/SearchResultFormatter.cpp"]},
+  {"query": "where is the search command line implemented", "relevant_files": ["src/main.cpp"]}
+]

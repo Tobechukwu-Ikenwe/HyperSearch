@@ -1,5 +1,6 @@
 #include "ChunkStore.h"
 #include "CodeChunker.h"
+#include "CodebaseScanner.h"
 #include "EmbeddingStore.h"
 #include "QueryAnalyzer.h"
 #include "ResultFusion.hpp"
@@ -36,6 +37,23 @@ struct TemporaryDirectory {
 SearchResult result(std::string path, std::string text,
                     std::size_t first = 1, std::size_t last = 1) {
     return {std::move(text), 0.0f, std::move(path), first, last};
+}
+
+void test_scanner(const fs::path& root) {
+    const auto fixture = root / "scanner-fixture";
+    fs::create_directories(fixture / "src");
+    fs::create_directories(fixture / "test-repos" / "nested");
+    fs::create_directories(fixture / "experiments");
+    std::ofstream(fixture / "src" / "answer.cpp") << "int answer = 42;\n";
+    std::ofstream(fixture / "test-repos" / "nested" / "noise.cpp") << "noise\n";
+    std::ofstream(fixture / "experiments" / "old.cpp") << "old\n";
+    std::ofstream(fixture / "src" / "secrets.json") << "{}\n";
+    std::ofstream(root / "outside.cpp") << "outside\n";
+    fs::create_symlink(root / "outside.cpp", fixture / "src" / "external.cpp");
+    const auto files = CodebaseScanner{}.scan(fixture);
+    require(files.size() == 1 &&
+            files[0].relative_path == fs::path("src/answer.cpp"),
+            "scanner should skip fixture, secret, and symlinked files");
 }
 
 void test_query_analysis() {
@@ -88,6 +106,15 @@ void test_persistent_index_and_cache(const fs::path& root) {
     require(old_chunks.size() == 1 && old_chunks[0].start_line == 1 &&
             old_chunks[0].end_line == 2, "line-numbered chunking");
     chunks.replace_file_chunks(file.relative_path, old_chunks);
+    require(chunks.all_chunks().size() == 1 &&
+            chunks.all_chunks()[0].content == old_chunks[0].content,
+            "persisted chunks must load with their content");
+    require(!chunks.file_is_current(file.relative_path, "digest-a"),
+            "new file must need indexing");
+    chunks.mark_file_current(file.relative_path, "digest-a");
+    require(chunks.file_is_current(file.relative_path, "digest-a") &&
+            !chunks.file_is_current(file.relative_path, "digest-b"),
+            "fingerprint must identify unchanged content");
     require(chunks.search_candidates("\"alpha\"", 10).size() == 1,
             "FTS should find inserted chunk");
 
@@ -109,6 +136,8 @@ void test_persistent_index_and_cache(const fs::path& root) {
     chunks.remove_missing_files({});
     require(chunks.search_candidates("\"beta\"", 10).empty(),
             "deleted file must leave no FTS result");
+    require(!chunks.file_is_current(file.relative_path, "digest-a"),
+            "deleted file must leave no fingerprint");
 }
 
 void test_formatter(const fs::path& root) {
@@ -217,6 +246,7 @@ int main() {
         TemporaryDirectory directory;
         test_query_analysis();
         test_fusion();
+        test_scanner(directory.path);
         test_persistent_index_and_cache(directory.path);
         test_formatter(directory.path);
         std::cout << "Search selection tests passed\n";

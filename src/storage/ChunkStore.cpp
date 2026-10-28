@@ -72,6 +72,11 @@ void ChunkStore::initialize() {
 
         CREATE INDEX IF NOT EXISTS idx_chunks_file_path
             ON chunks(file_path);
+
+        CREATE TABLE IF NOT EXISTS file_fingerprints (
+            file_path TEXT PRIMARY KEY,
+            fingerprint TEXT NOT NULL
+        );
     )";
 
     char* error_message = nullptr;
@@ -148,6 +153,100 @@ void ChunkStore::initialize() {
             throw std::runtime_error("Building FTS index failed: " + message);
         }
     }
+}
+
+std::vector<CodeChunk> ChunkStore::all_chunks() {
+    const char* sql =
+        "SELECT file_path, category, start_line, end_line, content "
+        "FROM chunks ORDER BY file_path, start_line";
+    sqlite3_stmt* statement = nullptr;
+    check_sqlite(sqlite3_prepare_v2(db_, sql, -1, &statement, nullptr),
+                 db_, "Preparing chunk load");
+
+    std::vector<CodeChunk> chunks;
+    try {
+        int result;
+        while ((result = sqlite3_step(statement)) == SQLITE_ROW) {
+            const auto* path = sqlite3_column_text(statement, 0);
+            const auto* category = sqlite3_column_text(statement, 1);
+            const auto* content = sqlite3_column_text(statement, 4);
+            const int content_size = sqlite3_column_bytes(statement, 4);
+            const std::string category_text = category
+                ? reinterpret_cast<const char*>(category) : "";
+            FileCategory file_category = FileCategory::Other;
+            if (category_text == "Source") file_category = FileCategory::Source;
+            else if (category_text == "Header") file_category = FileCategory::Header;
+            else if (category_text == "Test") file_category = FileCategory::Test;
+            else if (category_text == "Documentation") file_category = FileCategory::Documentation;
+            else if (category_text == "BuildConfig") file_category = FileCategory::BuildConfig;
+            chunks.push_back(CodeChunk{
+                ScannedFile{
+                    std::filesystem::path(path ? reinterpret_cast<const char*>(path) : ""),
+                    file_category
+                },
+                static_cast<std::size_t>(sqlite3_column_int64(statement, 2)),
+                static_cast<std::size_t>(sqlite3_column_int64(statement, 3)),
+                content && content_size > 0
+                    ? std::string(reinterpret_cast<const char*>(content),
+                                  static_cast<std::size_t>(content_size))
+                    : std::string{}
+            });
+        }
+        if (result != SQLITE_DONE) {
+            throw std::runtime_error(std::string("Loading chunks failed: ") +
+                                     sqlite3_errmsg(db_));
+        }
+    } catch (...) {
+        sqlite3_finalize(statement);
+        throw;
+    }
+    sqlite3_finalize(statement);
+    return chunks;
+}
+
+bool ChunkStore::file_is_current(
+    const std::filesystem::path& relative_path,
+    const std::string& fingerprint
+) {
+    sqlite3_stmt* statement = nullptr;
+    check_sqlite(sqlite3_prepare_v2(db_,
+        "SELECT fingerprint FROM file_fingerprints WHERE file_path = ?",
+        -1, &statement, nullptr), db_, "Preparing file fingerprint lookup");
+    const std::string path = relative_path.generic_string();
+    sqlite3_bind_text(statement, 1, path.c_str(), -1, SQLITE_TRANSIENT);
+    const int result = sqlite3_step(statement);
+    bool current = false;
+    if (result == SQLITE_ROW) {
+        const auto* stored = sqlite3_column_text(statement, 0);
+        current = stored && fingerprint == reinterpret_cast<const char*>(stored);
+    } else if (result != SQLITE_DONE) {
+        const std::string error = sqlite3_errmsg(db_);
+        sqlite3_finalize(statement);
+        throw std::runtime_error("Looking up file fingerprint failed: " + error);
+    }
+    sqlite3_finalize(statement);
+    return current;
+}
+
+void ChunkStore::mark_file_current(
+    const std::filesystem::path& relative_path,
+    const std::string& fingerprint
+) {
+    sqlite3_stmt* statement = nullptr;
+    check_sqlite(sqlite3_prepare_v2(db_,
+        "INSERT INTO file_fingerprints(file_path, fingerprint) VALUES (?, ?) "
+        "ON CONFLICT(file_path) DO UPDATE SET fingerprint = excluded.fingerprint",
+        -1, &statement, nullptr), db_, "Preparing file fingerprint update");
+    const std::string path = relative_path.generic_string();
+    sqlite3_bind_text(statement, 1, path.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(statement, 2, fingerprint.c_str(), -1, SQLITE_TRANSIENT);
+    const int result = sqlite3_step(statement);
+    if (result != SQLITE_DONE) {
+        const std::string error = sqlite3_errmsg(db_);
+        sqlite3_finalize(statement);
+        throw std::runtime_error("Updating file fingerprint failed: " + error);
+    }
+    sqlite3_finalize(statement);
 }
 
 void ChunkStore::save_chunks(const std::vector<CodeChunk>& chunks) {
@@ -301,6 +400,10 @@ void ChunkStore::remove_missing_files(
         result = sqlite3_exec(
             db_,
             "DELETE FROM chunks "
+            "WHERE file_path NOT IN ("
+            "SELECT file_path FROM current_scan_files"
+            ");"
+            "DELETE FROM file_fingerprints "
             "WHERE file_path NOT IN ("
             "SELECT file_path FROM current_scan_files"
             ");",

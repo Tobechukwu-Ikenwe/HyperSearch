@@ -1,8 +1,9 @@
 /build/
 /build-debug/
 /build-core/
+/build-core-sanitized/
 /build-release/
-/.hypersearch/
+.hypersearch/
 /.venv/
 /hypersearch.db
 /test-repos/

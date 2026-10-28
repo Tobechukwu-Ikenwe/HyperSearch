@@ -1,0 +1,48 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": { "major": 3, "minor": 20 },
+  "configurePresets": [
+    {
+      "name": "core",
+      "displayName": "Model-free tests",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build-core",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "HYPERSEARCH_CORE_ONLY": "ON"
+      }
+    },
+    {
+      "name": "full",
+      "displayName": "Full CLI",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "HYPERSEARCH_CORE_ONLY": "OFF"
+      }
+    },
+    {
+      "name": "core-sanitized",
+      "displayName": "Core with AddressSanitizer and UndefinedBehaviorSanitizer",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build-core-sanitized",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "HYPERSEARCH_CORE_ONLY": "ON",
+        "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined -fno-omit-frame-pointer",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "core", "configurePreset": "core" },
+    { "name": "full", "configurePreset": "full" },
+    { "name": "core-sanitized", "configurePreset": "core-sanitized" }
+  ],
+  "testPresets": [
+    { "name": "core", "configurePreset": "core", "output": { "outputOnFailure": true } },
+    { "name": "full", "configurePreset": "full", "output": { "outputOnFailure": true } },
+    { "name": "core-sanitized", "configurePreset": "core-sanitized", "output": { "outputOnFailure": true } }
+  ]
+}

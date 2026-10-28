@@ -1,6 +1,8 @@
 #include "EmbeddingPipeline.h"
 
+#include <algorithm>
 #include <cmath>
+#include <filesystem>
 #include <stdexcept>
 #include <utility>
 #include <vector>
@@ -15,15 +17,21 @@ constexpr const char* python_model_id =
 
 constexpr std::size_t onnx_embedding_dimension = 384;
 
+std::filesystem::path model_directory() {
+    return std::filesystem::read_symlink("/proc/self/exe").parent_path() /
+           "models" / "all-MiniLM-L6-v2";
+}
+
 } // namespace
 
 EmbeddingPipeline::EmbeddingPipeline(EmbeddingStore& store)
     : store_(store),
       backend_(Backend::Onnx)
 {
-    // Use the repository's bundled model and tokenizer by default.
+    const auto directory = model_directory();
     owned_model_ = std::make_unique<EmbeddingModel>(
-        "third_party/models/all-MiniLM-L6-v2/tokenizer.json"
+        (directory / "tokenizer.json").string(),
+        (directory / "onnx" / "model.onnx").string()
     );
     model_ = owned_model_.get();
 }
@@ -137,17 +145,23 @@ std::vector<std::vector<float>> EmbeddingPipeline::embed_chunks(
     generated.reserve(missing_texts.size());
 
     if (backend_ == Backend::Onnx) {
-        auto batch = model_->embed_batch(missing_texts);
-
-        if (batch.size() != missing_texts.size()) {
-            throw std::runtime_error(
-                "ONNX model returned a different number of vectors "
-                "than requested"
-            );
-        }
-
-        for (const auto& embedding : batch) {
-            generated.push_back(embedding.data());
+        constexpr std::size_t batch_size = 32;
+        for (std::size_t start = 0; start < missing_texts.size();
+             start += batch_size) {
+            const std::size_t end =
+                std::min(start + batch_size, missing_texts.size());
+            const std::vector<std::string> inputs(
+                missing_texts.begin() + start, missing_texts.begin() + end);
+            auto batch = model_->embed_batch(inputs);
+            if (batch.size() != inputs.size()) {
+                throw std::runtime_error(
+                    "ONNX model returned a different number of vectors "
+                    "than requested"
+                );
+            }
+            for (const auto& embedding : batch) {
+                generated.push_back(embedding.data());
+            }
         }
     } else {
         generated = worker_->embed_documents(missing_texts);

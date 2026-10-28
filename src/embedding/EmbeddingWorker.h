@@ -14,7 +14,7 @@ public:
 
     explicit EmbeddingWorker(
         std::filesystem::path python_executable = ".venv/bin/python",
-        std::filesystem::path worker_script = "python/embedding_worker.py"
+        std::filesystem::path worker_script = "src/embedding/python/embedding_worker.py"
     );
 
     ~EmbeddingWorker();
